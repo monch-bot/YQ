@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>恋爱纪念日</title>
+  <style>
+    :root{
+      --bg1:#ffe1ec; --bg2:#c8e7ff; --card:rgba(255,255,255,.25);
+      --border:rgba(255,255,255,.45); --text:#222; --muted:#666;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; padding:0; display:flex; align-items:center; justify-content:center;
+      background:radial-gradient(circle at 30% -10%, var(--bg1), var(--bg2));
+      font-family:"Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      overflow:hidden;
+    }
+
+    /* 脉动心形（纯 CSS） */
+    .heart{
+      position:absolute; width:280px; height:280px; transform:translate(-50%,-50%) rotate(45deg);
+      left:50%; top:40%; filter:blur(8px); opacity:.18; animation:pulse 2.8s ease-in-out infinite;
+    }
+    .heart::before,.heart::after{
+      content:""; position:absolute; width:100%; height:100%; background:radial-gradient(circle at 30% 30%, #ff5d8f, #ff2f6e 60%, rgba(255,0,90,.6));
+      border-radius:50%;
+    }
+    .heart::before{ left:-50%; }
+    .heart::after{ top:-50%; }
+
+    /* 漂浮爱心粒子容器 */
+    .particles{ position:fixed; inset:0; pointer-events:none; overflow:hidden; }
+
+    /* 卡片 */
+    .card{
+      position:relative; z-index:2;
+      text-align:center; padding:34px 44px;
+      border-radius:24px; background:var(--card); border:1px solid var(--border);
+      backdrop-filter: blur(12px) saturate(120%);
+      box-shadow:0 20px 60px rgba(0,0,0,.25);
+      animation:float 6s ease-in-out infinite;
+    }
+    .title{font-size:22px; color:#444; margin-bottom:10px; letter-spacing:.04em}
+    .since{font-size:18px; color:var(--muted); margin-bottom:16px}
+    .days{
+      font-size:56px; font-weight:800; color:var(--text);
+      letter-spacing:.04em; transform:scale(.96) translateY(6px);
+      opacity:0; animation:reveal .7s cubic-bezier(.2,.9,.2,1) forwards .2s;
+    }
+
+    @keyframes pulse{
+      0%,100%{ transform:translate(-50%,-50%) rotate(45deg) scale(1); opacity:.16 }
+      50%{ transform:translate(-50%,-50%) rotate(45deg) scale(1.08); opacity:.24 }
+    }
+    @keyframes float{
+      0%,100%{ transform:translateY(0) }
+      50%{ transform:translateY(-6px) }
+    }
+    @keyframes reveal{
+      from{ opacity:0; transform:scale(.92) translateY(12px) }
+      to{ opacity:1; transform:scale(1) translateY(0) }
+    }
+
+    /* 单个爱心粒子样式 */
+    .p{
+      position:absolute; width:14px; height:14px; transform:rotate(45deg);
+      background:linear-gradient(135deg, rgba(255,96,143,.95), rgba(255,65,120,.85));
+      box-shadow:0 6px 18px rgba(255,45,115,.35);
+      border-radius:3px;
+      opacity:.9;
+      animation:rise linear forwards;
+    }
+    .p::before,.p::after{
+      content:""; position:absolute; width:14px; height:14px; border-radius:50%;
+      background:inherit;
+    }
+    .p::before{ left:-7px; top:0 }
+    .p::after{ left:0; top:-7px }
+
+    @keyframes rise{
+      0%{ transform:translateY(0) rotate(45deg) scale(.9); opacity:.0 }
+      10%{ opacity:1 }
+      90%{ opacity:1 }
+      100%{ transform:translateY(-110vh) rotate(45deg) scale(1.1); opacity:0 }
+    }
+
+    /* 小屏优化 */
+    @media (max-width:480px){
+      .card{ padding:26px 24px }
+      .days{ font-size:44px }
+    }
+  </style>
+</head>
+<body>
+  <!-- 背景动画 -->
+  <div class="heart" aria-hidden="true"></div>
+  <div class="particles" id="particles" aria-hidden="true"></div>
+
+  <!-- 内容卡片 -->
+  <div class="card">
+    <div class="title">恋爱纪念日</div>
+    <div class="since">我们在 <b>2025年4月12日</b> 在一起 ❤️</div>
+    <div id="days" class="days">0 天</div>
+  </div>
+
+  <script>
+    // ====== 配置：纪念日（24小时制），默认与你本地时区一致 ======
+    const START = new Date("2025-04-12T20:00:00");
+
+    const daysEl = document.getElementById("days");
+
+    // 数字平滑增长（跨天时有轻微“跳动”）
+    function setDaysSmooth(targetDays){
+      const current = Number(daysEl.dataset.value || 0);
+      const steps = Math.min(24, Math.max(8, Math.abs(targetDays - current))); // 平滑步数
+      let i = 0;
+      const delta = (targetDays - current) / steps;
+      clearInterval(setDaysSmooth._id);
+      setDaysSmooth._id = setInterval(()=>{
+        i++;
+        const val = i >= steps ? targetDays : Math.round(current + delta * i);
+        daysEl.dataset.value = val;
+        daysEl.textContent = `${val} 天`;
+        if(i >= steps) clearInterval(setDaysSmooth._id);
+      }, 16);
+    }
+
+    function computeDays(){
+      const now = new Date();
+      let diffMs = now - START;
+      if(diffMs < 0) diffMs = 0;
+      // 以整天为单位向下取整
+      return Math.floor(diffMs / 86400000);
+    }
+
+    function updateDays(){
+      setDaysSmooth(computeDays());
+    }
+
+    // 立即呈现
+    updateDays();
+
+    // 精准在“下一个整点午夜”更新，避免误差
+    function msUntilNextMidnight(){
+      const n = new Date();
+      const next = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1, 0, 0, 1);
+      return next - n;
+    }
+    setTimeout(function tick(){
+      updateDays();
+      // 之后每 24 小时更新一次
+      setInterval(updateDays, 24*60*60*1000);
+    }, msUntilNextMidnight());
+
+    // 额外：每小时兜底刷新一次，确保长时间开着也不会飘
+    setInterval(updateDays, 60*60*1000);
+
+    // ====== 轻量爱心粒子（~每200ms一个，自动清理） ======
+    const container = document.getElementById('particles');
+    function spawnHeart(){
+      const el = document.createElement('div');
+      el.className = 'p';
+      const startX = Math.random() * 100;        // vw
+      const dur = 6 + Math.random() * 6;         // 6~12s
+      const delay = 0;                            // 立即
+      const size = 10 + Math.random() * 14;      // 10~24px
+      el.style.left = startX + 'vw';
+      el.style.bottom = '-24px';
+      el.style.width = size+'px';
+      el.style.height = size+'px';
+      el.style.animationDuration = dur + 's';
+      el.style.animationDelay = delay + 's';
+      el.style.opacity = .2 + Math.random() * .6;
+      container.appendChild(el);
+      // 清理
+      setTimeout(()=> el.remove(), (dur+0.5)*1000);
+    }
+    // 控制密度（性能友好）
+    const spawner = setInterval(spawnHeart, 220);
+    // 若页面隐藏则暂停生成
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.hidden){ clearInterval(spawner._id); spawner._id = null; }
+      else if(!spawner._id){ spawner._id = setInterval(spawnHeart, 220); }
+    });
+  </script>
+</body>
+</html>
