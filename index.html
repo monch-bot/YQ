@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我们的私密留言板 ❤️</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #FFE4E6 0%, #F3E8FF 50%, #FFE4E6 100%);
+            min-height: 100vh;
+        }
+        .hero-title {
+            font-family: 'Noto Serif SC', serif;
+        }
+        .floating-hearts {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .heart {
+            position: absolute;
+            color: rgba(255, 107, 157, 0.3);
+            font-size: 20px;
+            animation: float 6s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        .password-input {
+            transition: all 0.3s ease;
+        }
+        .password-input:focus {
+            transform: scale(1.02);
+            box-shadow: 0 0 20px rgba(255, 107, 157, 0.3);
+        }
+        .login-btn {
+            background: linear-gradient(45deg, #FF6B9D, #FF8FAB);
+            transition: all 0.3s ease;
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(255, 107, 157, 0.4);
+        }
+        .error-shake {
+            animation: shake 0.5s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+    <!-- 浮动爱心背景 -->
+    <div class="floating-hearts">
+        <div class="heart" style="left: 10%; animation-delay: 0s;">❤️</div>
+        <div class="heart" style="left: 20%; animation-delay: 1s;">💖</div>
+        <div class="heart" style="left: 30%; animation-delay: 2s;">💕</div>
+        <div class="heart" style="left: 40%; animation-delay: 3s;">💗</div>
+        <div class="heart" style="left: 50%; animation-delay: 4s;">💓</div>
+        <div class="heart" style="left: 60%; animation-delay: 5s;">💝</div>
+        <div class="heart" style="left: 70%; animation-delay: 1.5s;">❤️</div>
+        <div class="heart" style="left: 80%; animation-delay: 2.5s;">💖</div>
+        <div class="heart" style="left: 90%; animation-delay: 3.5s;">💕</div>
+    </div>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- Hero 区域 -->
+        <div class="text-center mb-12">
+            <div class="hero-content opacity-0">
+                <h1 class="hero-title text-5xl md:text-6xl font-bold text-gray-800 mb-4">
+                    我们的私密空间
+                </h1>
+                <div class="text-6xl mb-4">💕</div>
+                <p class="text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
+                    这里是我们专属的甜蜜角落，记录每一个温馨的瞬间，分享彼此的思念与爱意。
+                    输入我们的专属密码，开启属于我们的私密对话吧。
+                </p>
+            </div>
+        </div>
+
+        <!-- 密码验证卡片 -->
+        <div class="max-w-md mx-auto">
+            <div class="glass-card rounded-3xl p-8 shadow-2xl opacity-0" id="loginCard">
+                <div class="text-center mb-8">
+                    <div class="text-4xl mb-4">🔐</div>
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-2">请输入密码</h2>
+                    <p class="text-gray-600 text-sm">只有我们知道的秘密哦 💖</p>
+                </div>
+
+                <form id="loginForm" class="space-y-6">
+                    <div class="relative">
+                        <input 
+                            type="password" 
+                            id="passwordInput" 
+                            class="password-input w-full px-6 py-4 rounded-2xl border-2 border-pink-200 focus:border-pink-400 focus:outline-none text-center text-lg bg-white/50"
+                            placeholder="输入我们的专属密码..."
+                            autocomplete="current-password"
+                        >
+                        <div class="absolute right-4 top-1/2 transform -translate-y-1/2 cursor-pointer" id="togglePassword">
+                            <span class="text-gray-400">👁️</span>
+                        </div>
+                    </div>
+
+                    <div id="errorMessage" class="text-red-500 text-sm text-center hidden">
+                        密码不正确哦，再试试看 💭
+                    </div>
+
+                    <button 
+                        type="submit" 
+                        class="login-btn w-full py-4 rounded-2xl text-white font-semibold text-lg shadow-lg"
+                    >
+                        进入我们的世界 ✨
+                    </button>
+                </form>
+
+                <div class="text-center mt-6">
+                    <p class="text-gray-500 text-sm">
+                        忘记密码了？<br>
+                        <span class="text-pink-500 font-medium">想想我们第一次约会的地方~</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 装饰性元素 -->
+        <div class="absolute bottom-8 left-8 text-6xl opacity-20 animate-bounce">💌</div>
+        <div class="absolute top-8 right-8 text-4xl opacity-20 animate-pulse">💝</div>
+    </div>
+
+    <script>
+        // 页面加载动画
+        document.addEventListener('DOMContentLoaded', function() {
+            // Hero区域动画
+            anime({
+                targets: '.hero-content',
+                opacity: [0, 1],
+                translateY: [50, 0],
+                duration: 1000,
+                easing: 'easeOutQuart',
+                delay: 300
+            });
+
+            // 登录卡片动画
+            anime({
+                targets: '#loginCard',
+                opacity: [0, 1],
+                translateY: [30, 0],
+                duration: 800,
+                easing: 'easeOutQuart',
+                delay: 600
+            });
+
+            // 密码输入框聚焦效果
+            const passwordInput = document.getElementById('passwordInput');
+            passwordInput.addEventListener('focus', function() {
+                anime({
+                    targets: this,
+                    scale: [1, 1.02],
+                    duration: 200,
+                    easing: 'easeOutQuart'
+                });
+            });
+
+            passwordInput.addEventListener('blur', function() {
+                anime({
+                    targets: this,
+                    scale: [1.02, 1],
+                    duration: 200,
+                    easing: 'easeOutQuart'
+                });
+            });
+        });
+
+        // 密码可见性切换
+        document.getElementById('togglePassword').addEventListener('click', function() {
+            const passwordInput = document.getElementById('passwordInput');
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            this.querySelector('span').textContent = type === 'password' ? '👁️' : '🙈';
+        });
+
+        // 密码验证逻辑
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const password = document.getElementById('passwordInput').value;
+            let correctPassword = localStorage.getItem('loveBoardPassword');
+            
+            // 如果是首次访问（没有设置密码），则将当前输入设为密码
+            if (!correctPassword) {
+                // 设置新密码
+                localStorage.setItem('loveBoardPassword', password);
+                localStorage.setItem('loveBoardAuthenticated', 'true');
+                
+                // 显示设置成功消息
+                const errorMsg = document.getElementById('errorMessage');
+                errorMsg.textContent = '密码设置成功！欢迎使用私密留言板 💕';
+                errorMsg.classList.remove('text-red-500');
+                errorMsg.classList.add('text-green-500');
+                errorMsg.classList.remove('hidden');
+                
+                // 延迟后跳转
+                setTimeout(() => {
+                    window.location.href = 'message-board.html';
+                }, 1500);
+                return;
+            }
+            
+            if (password === correctPassword) {
+                // 验证成功，保存到本地存储
+                localStorage.setItem('loveBoardAuthenticated', 'true');
+                
+                // 成功动画
+                anime({
+                    targets: '#loginCard',
+                    scale: [1, 0.95],
+                    opacity: [1, 0],
+                    duration: 300,
+                    easing: 'easeInQuart',
+                    complete: function() {
+                        // 跳转到留言板
+                        window.location.href = 'message-board.html';
+                    }
+                });
+            } else {
+                // 验证失败，显示错误动画
+                const errorMsg = document.getElementById('errorMessage');
+                const loginCard = document.getElementById('loginCard');
+                
+                errorMsg.classList.remove('hidden');
+                loginCard.classList.add('error-shake');
+                
+                // 输入框错误动画
+                anime({
+                    targets: '#passwordInput',
+                    backgroundColor: ['rgba(255, 255, 255, 0.5)', 'rgba(255, 107, 157, 0.1)', 'rgba(255, 255, 255, 0.5)'],
+                    duration: 1000,
+                    easing: 'easeInOutQuart'
+                });
+                
+                setTimeout(() => {
+                    loginCard.classList.remove('error-shake');
+                }, 500);
+                
+                // 清空输入框
+                document.getElementById('passwordInput').value = '';
+                document.getElementById('passwordInput').focus();
+            }
+        });
+
+        // 回车键提交
+        document.getElementById('passwordInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+            }
+        });
+    </script>
+</body>
+</html>
