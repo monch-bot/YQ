@@ -80,6 +80,8 @@
          }
        }
      }
+
+
      ```
    - 点击「发布」保存规则
 
@@ -89,13 +91,14 @@
 2. 将你从Firebase获取的配置信息替换到对应的位置：
    ```javascript
    const config = {
-       apiKey: "你的API密钥",
-       authDomain: "你的项目ID.firebaseapp.com",
-       projectId: "你的项目ID",
-       storageBucket: "你的项目ID.appspot.com",
-       messagingSenderId: "消息发送者ID",
-       appId: "应用ID"
-   };
+        apiKey: "AIzaSyBlPW6eRI2jPyyfZSI8oqMzAR4tlp2G3Ls",
+        authDomain: "test-0412yu.firebaseapp.com",
+        projectId: "test-0412yu",
+        storageBucket: "test-0412yu.firebasestorage.app",
+        messagingSenderId: "729918223391",
+        appId: "1:729918223391:web:7756279ff8b7dab739112a",
+        measurementId: "G-BXHES5D57D"
+    };
    ```
 3. 保存文件并部署到GitHub Pages
 

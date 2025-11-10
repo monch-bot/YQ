@@ -195,32 +195,12 @@
             this.querySelector('span').textContent = type === 'password' ? '👁️' : '🙈';
         });
 
-        // 密码验证逻辑
+        // 密码验证逻辑 - 固定密码0412
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
             const password = document.getElementById('passwordInput').value;
-            let correctPassword = localStorage.getItem('loveBoardPassword');
-            
-            // 如果是首次访问（没有设置密码），则将当前输入设为密码
-            if (!correctPassword) {
-                // 设置新密码
-                localStorage.setItem('loveBoardPassword', password);
-                localStorage.setItem('loveBoardAuthenticated', 'true');
-                
-                // 显示设置成功消息
-                const errorMsg = document.getElementById('errorMessage');
-                errorMsg.textContent = '密码设置成功！欢迎使用私密留言板 💕';
-                errorMsg.classList.remove('text-red-500');
-                errorMsg.classList.add('text-green-500');
-                errorMsg.classList.remove('hidden');
-                
-                // 延迟后跳转
-                setTimeout(() => {
-                    window.location.href = 'message-board.html';
-                }, 1500);
-                return;
-            }
+            const correctPassword = '0412'; // 固定密码
             
             if (password === correctPassword) {
                 // 验证成功，保存到本地存储
