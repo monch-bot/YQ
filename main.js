@@ -3,7 +3,7 @@ class LoveMessageBoard {
     constructor() {
         this.messages = [];
         this.currentUser = 'me';
-        this.password = '0412'; // 固定密码
+        this.password = localStorage.getItem('loveBoardPassword');
         this.isCloudEnabled = false; // 云存储功能状态
         this.isCloudSynced = false; // 云同步状态
         this.syncing = false; // 正在同步中
@@ -32,9 +32,6 @@ class LoveMessageBoard {
         
         // 初始化云存储
         this.initCloudStorage();
-        
-        // 确保验证状态正确设置
-        localStorage.setItem('loveBoardAuthenticated', 'true');
     }
 
     checkAuthentication() {
@@ -133,7 +130,7 @@ class LoveMessageBoard {
             if (window.cloudStorage && this.password) {
                 // 使用默认配置初始化Firebase
                 const config = {
-                    // 用户提供的Firebase配置
+                    // 注意：在实际部署时，需要替换为真实的Firebase配置
                     apiKey: "AIzaSyBlPW6eRI2jPyyfZSI8oqMzAR4tlp2G3Ls",
                     authDomain: "test-0412yu.firebaseapp.com",
                     projectId: "test-0412yu",
@@ -146,8 +143,8 @@ class LoveMessageBoard {
                 // 初始化云存储
                 const initialized = await window.cloudStorage.initialize(config);
                 if (initialized) {
-                    // 使用固定密码0412登录云存储
-                    const loggedIn = await window.cloudStorage.login('0412');
+                    // 使用当前密码登录云存储
+                    const loggedIn = await window.cloudStorage.login(this.password);
                     if (loggedIn) {
                         this.isCloudEnabled = true;
                         this.updateSyncStatus();
