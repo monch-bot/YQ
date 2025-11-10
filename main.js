@@ -4,6 +4,9 @@ class LoveMessageBoard {
         this.messages = [];
         this.currentUser = 'me';
         this.password = localStorage.getItem('loveBoardPassword');
+        this.isCloudEnabled = false; // 云存储功能状态
+        this.isCloudSynced = false; // 云同步状态
+        this.syncing = false; // 正在同步中
         
         this.init();
     }
@@ -26,6 +29,9 @@ class LoveMessageBoard {
         
         // 页面加载动画
         this.initAnimations();
+        
+        // 初始化云存储
+        this.initCloudStorage();
     }
 
     checkAuthentication() {
@@ -46,8 +52,16 @@ class LoveMessageBoard {
         
         // 按钮
         this.exportBtn = document.getElementById('exportBtn');
+        this.importBtn = document.getElementById('importBtn');
         this.clearBtn = document.getElementById('clearBtn');
         this.logoutBtn = document.getElementById('logoutBtn');
+        
+        // 导入文件输入
+        this.fileInput = document.createElement('input');
+        this.fileInput.type = 'file';
+        this.fileInput.accept = '.json';
+        this.fileInput.style.display = 'none';
+        document.body.appendChild(this.fileInput);
         
         // 确认对话框
         this.confirmModal = document.getElementById('confirmModal');
@@ -56,6 +70,12 @@ class LoveMessageBoard {
         this.confirmMessage = document.getElementById('confirmMessage');
         this.confirmCancel = document.getElementById('confirmCancel');
         this.confirmOk = document.getElementById('confirmOk');
+        
+        // 同步状态指示器
+        this.syncStatus = document.createElement('div');
+        this.syncStatus.className = 'fixed bottom-4 right-4 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-800 text-white/90 z-50';
+        this.syncStatus.textContent = '💾 本地模式';
+        document.body.appendChild(this.syncStatus);
     }
 
     bindEvents() {
@@ -77,8 +97,15 @@ class LoveMessageBoard {
 
         // 功能按钮
         this.exportBtn.addEventListener('click', () => this.exportMessages());
+        this.importBtn.addEventListener('click', () => this.importMessages());
+        this.fileInput.addEventListener('change', (e) => this.handleFileImport(e));
         this.clearBtn.addEventListener('click', () => this.showClearConfirm());
         this.logoutBtn.addEventListener('click', () => this.logout());
+        
+        // 同步按钮（如果存在）
+        if (document.getElementById('syncBtn')) {
+            document.getElementById('syncBtn').addEventListener('click', () => this.triggerSync());
+        }
 
         // 确认对话框
         this.confirmCancel.addEventListener('click', () => this.hideConfirmModal());
@@ -97,6 +124,102 @@ class LoveMessageBoard {
         });
     }
 
+    // 初始化云存储
+    async initCloudStorage() {
+        try {
+            if (window.cloudStorage && this.password) {
+                // 使用默认配置初始化Firebase
+                const config = {
+                    // 注意：在实际部署时，需要替换为真实的Firebase配置
+                    apiKey: "AIzaSyAEXAMPLE_KEY",
+                    authDomain: "love-board-xxxx.firebaseapp.com",
+                    projectId: "love-board-xxxx",
+                    storageBucket: "love-board-xxxx.appspot.com",
+                    messagingSenderId: "xxxxxxxxx",
+                    appId: "1:xxxxxxxxx:web:xxxxxxxxxxxxxxxx"
+                };
+                
+                // 初始化云存储
+                const initialized = await window.cloudStorage.initialize(config);
+                if (initialized) {
+                    // 使用当前密码登录云存储
+                    const loggedIn = await window.cloudStorage.login(this.password);
+                    if (loggedIn) {
+                        this.isCloudEnabled = true;
+                        this.updateSyncStatus();
+                        
+                        // 尝试从云端加载消息
+                        await this.loadCloudMessages();
+                        
+                        // 开始自动同步
+                        this.startCloudSync();
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('云存储初始化失败:', error);
+            this.isCloudEnabled = false;
+            this.updateSyncStatus();
+        }
+    }
+
+    // 从云端加载消息
+    async loadCloudMessages() {
+        if (!this.isCloudEnabled || !window.cloudStorage.isAuthenticated()) {
+            return;
+        }
+
+        try {
+            const cloudMessages = await window.cloudStorage.getMessages();
+            if (cloudMessages.length > 0) {
+                // 合并本地和云端消息
+                this.messages = [...this.messages, ...cloudMessages];
+                // 去重并按时间排序
+                this.messages = [...new Map(this.messages.map(m => [m.id, m])).values()]
+                    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                
+                // 保存到本地并更新UI
+                this.saveToLocalStorage();
+                this.renderMessages();
+                
+                this.isCloudSynced = true;
+                this.updateSyncStatus();
+            }
+        } catch (error) {
+            console.error('加载云端消息失败:', error);
+        }
+    }
+
+    // 保存消息到云端
+    async saveToCloud() {
+        if (!this.isCloudEnabled || !window.cloudStorage.isAuthenticated() || this.syncing) {
+            return false;
+        }
+
+        try {
+            this.syncing = true;
+            this.updateSyncStatus();
+            
+            // 保存所有消息到云端
+            for (const message of this.messages) {
+                await window.cloudStorage.saveMessage(message);
+            }
+            
+            this.isCloudSynced = true;
+            this.updateSyncStatus();
+            return true;
+        } catch (error) {
+            console.error('保存到云端失败:', error);
+            this.isCloudSynced = false;
+            this.updateSyncStatus();
+            return false;
+        } finally {
+            this.syncing = false;
+            this.updateSyncStatus();
+        }
+    }
+
+    // 从本地存储加载消息
     loadMessages() {
         const savedMessages = localStorage.getItem('loveBoardMessages');
         if (savedMessages) {
@@ -109,8 +232,83 @@ class LoveMessageBoard {
         }
     }
 
-    saveMessages() {
+    // 保存消息到本地存储
+    saveToLocalStorage() {
         localStorage.setItem('loveBoardMessages', JSON.stringify(this.messages));
+    }
+
+    // 主保存方法（同时保存到本地和云端）
+    async saveMessages() {
+        // 先保存到本地
+        this.saveToLocalStorage();
+        
+        // 然后尝试保存到云端
+        if (this.isCloudEnabled) {
+            await this.saveToCloud();
+        }
+    }
+
+    // 更新同步状态显示
+    updateSyncStatus() {
+        if (!this.isCloudEnabled) {
+            this.syncStatus.textContent = '💾 本地模式';
+            this.syncStatus.className = 'fixed bottom-4 right-4 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-800 text-white/90 z-50';
+        } else if (this.syncing) {
+            this.syncStatus.textContent = '🔄 正在同步...';
+            this.syncStatus.className = 'fixed bottom-4 right-4 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-600 text-white z-50';
+        } else if (this.isCloudSynced) {
+            this.syncStatus.textContent = '☁️ 云端同步成功';
+            this.syncStatus.className = 'fixed bottom-4 right-4 px-3 py-1.5 rounded-full text-xs font-medium bg-green-600 text-white z-50';
+        } else {
+            this.syncStatus.textContent = '⚠️ 未同步到云端';
+            this.syncStatus.className = 'fixed bottom-4 right-4 px-3 py-1.5 rounded-full text-xs font-medium bg-yellow-600 text-white z-50';
+        }
+    }
+
+    // 开始云同步
+    startCloudSync() {
+        if (this.isCloudEnabled && window.cloudStorage) {
+            window.cloudStorage.startSync(this.messages, (cloudMessages) => {
+                // 当有新的云端消息时
+                if (cloudMessages.length > 0) {
+                    // 合并新消息
+                    this.messages = [...this.messages, ...cloudMessages];
+                    // 去重并排序
+                    this.messages = [...new Map(this.messages.map(m => [m.id, m])).values()]
+                        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                    
+                    // 保存并更新UI
+                    this.saveToLocalStorage();
+                    this.renderMessages();
+                    
+                    this.isCloudSynced = true;
+                    this.updateSyncStatus();
+                    
+                    // 显示新消息通知
+                    this.showNotification('收到新的云端消息！✨', 'success');
+                }
+            });
+        }
+    }
+
+    // 手动触发同步
+    async triggerSync() {
+        if (!this.isCloudEnabled) {
+            this.showNotification('云存储未启用 🌤️', 'info');
+            return;
+        }
+        
+        this.syncing = true;
+        this.updateSyncStatus();
+        
+        // 双向同步：先从云端拉取，再推送到云端
+        await this.loadCloudMessages();
+        await this.saveToCloud();
+        
+        this.syncing = false;
+        this.updateSyncStatus();
+        
+        this.showNotification('手动同步完成！🔄', 'success');
     }
 
     updateUI() {
@@ -288,6 +486,59 @@ class LoveMessageBoard {
 
         this.showNotification('留言导出成功！📥', 'success');
     }
+    
+    importMessages() {
+        this.fileInput.click();
+    }
+    
+    handleFileImport(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        if (!file.name.endsWith('.json')) {
+            this.showNotification('请选择有效的JSON文件 😊', 'error');
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = JSON.parse(event.target.result);
+                
+                // 验证文件格式
+                if (!data.messages || !Array.isArray(data.messages)) {
+                    throw new Error('文件格式不正确');
+                }
+                
+                // 显示确认对话框
+                this.showConfirmModal(
+                    '📤',
+                    '导入留言',
+                    `确定要导入 ${data.messages.length} 条留言吗？导入后会将新留言添加到现有留言中。`,
+                    () => {
+                        this.messages = [...this.messages, ...data.messages];
+                        // 去重并按时间排序
+                        this.messages = [...new Map(this.messages.map(m => [m.id, m])).values()]
+                            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                        
+                        this.saveMessages();
+                        this.renderMessages();
+                        this.showNotification(`成功导入 ${data.messages.length} 条留言！🎉`, 'success');
+                    }
+                );
+            } catch (error) {
+                console.error('导入失败:', error);
+                this.showNotification('文件格式不正确，请检查文件内容 🥺', 'error');
+            }
+        };
+        reader.onerror = () => {
+            this.showNotification('文件读取失败 🥺', 'error');
+        };
+        reader.readAsText(file);
+        
+        // 重置文件输入，以便可以再次选择同一文件
+        this.fileInput.value = '';
+    }
 
     showClearConfirm() {
         if (this.messages.length === 0) {
@@ -303,10 +554,20 @@ class LoveMessageBoard {
         );
     }
 
-    clearAllMessages() {
+    async clearAllMessages() {
         this.messages = [];
-        this.saveMessages();
+        
+        // 保存到本地
+        this.saveToLocalStorage();
+        
+        // 清空云端
+        if (this.isCloudEnabled && window.cloudStorage.isAuthenticated()) {
+            await window.cloudStorage.clearAllMessages();
+        }
+        
         this.renderMessages();
+        this.isCloudSynced = this.isCloudEnabled;
+        this.updateSyncStatus();
         this.showNotification('留言板已清空 🌸', 'success');
     }
 
@@ -315,7 +576,13 @@ class LoveMessageBoard {
             '🔒',
             '确认退出',
             '确定要离开我们的私密空间吗？下次需要重新输入密码。',
-            () => {
+            async () => {
+                // 停止云同步
+                if (this.isCloudEnabled && window.cloudStorage) {
+                    window.cloudStorage.stopSync();
+                    window.cloudStorage.logout();
+                }
+                
                 localStorage.removeItem('loveBoardAuthenticated');
                 window.location.href = 'index.html';
             }
@@ -433,7 +700,64 @@ class LoveMessageBoard {
 // 初始化应用
 let loveBoard;
 document.addEventListener('DOMContentLoaded', function() {
-    loveBoard = new LoveMessageBoard();
+    // 先加载Firebase SDK
+    const loadFirebase = () => {
+        return new Promise((resolve, reject) => {
+            // 检查Firebase是否已加载
+            if (window.firebase) {
+                resolve();
+                return;
+            }
+            
+            // 加载Firebase核心库
+            const firebaseScript = document.createElement('script');
+            firebaseScript.src = 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js';
+            firebaseScript.onload = () => {
+                // 加载Firestore和Auth库
+                const firestoreScript = document.createElement('script');
+                firestoreScript.src = 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js';
+                firestoreScript.onload = () => {
+                    const authScript = document.createElement('script');
+                    authScript.src = 'https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js';
+                    authScript.onload = resolve;
+                    authScript.onerror = reject;
+                    document.head.appendChild(authScript);
+                };
+                firestoreScript.onerror = reject;
+                document.head.appendChild(firestoreScript);
+            };
+            firebaseScript.onerror = () => {
+                console.log('Firebase加载失败，将使用本地存储模式');
+                resolve(); // 继续初始化，即使Firebase加载失败
+            };
+            document.head.appendChild(firebaseScript);
+        });
+    };
+    
+    // 加载云存储服务
+    const loadCloudStorage = () => {
+        return new Promise((resolve) => {
+            if (window.cloudStorage) {
+                resolve();
+                return;
+            }
+            
+            const cloudStorageScript = document.createElement('script');
+            cloudStorageScript.src = 'cloud-storage.js';
+            cloudStorageScript.onload = resolve;
+            cloudStorageScript.onerror = () => {
+                console.log('云存储服务加载失败');
+                resolve(); // 继续初始化
+            };
+            document.head.appendChild(cloudStorageScript);
+        });
+    };
+    
+    // 按顺序加载所需资源
+    Promise.all([loadFirebase(), loadCloudStorage()]).then(() => {
+        // 初始化应用
+        loveBoard = new LoveMessageBoard();
+    });
 });
 
 // 防止意外关闭
